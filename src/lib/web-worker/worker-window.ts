@@ -75,6 +75,81 @@ import { patchHTMLScriptElement } from './worker-script';
 import { patchSvgElement } from './worker-svg';
 import { resolveUrl } from './worker-exec';
 
+// FIXME: move this to some better place
+class TagAssistantApi {
+  win: Window;
+  api: unknown;
+
+  constructor(win: Window) {
+    type unknownFn = (...args: unknown[]) => unknown
+    let receiverFn: unknownFn | null = null
+
+    const gtmDebugLog = (msg: string, data?: unknown) => {
+      if (debug) {
+        console.debug(
+          `%cGTM Worker (${normalizedWinId(win[WinIdKey])})%c${msg}`,
+          `background: #0fab40; color: white; padding: 2px 3px; border-radius: 2px; font-size: 0.8em;margin-right:5px`,
+          `background: #999999; color: white; padding: 2px 3px; border-radius: 2px; font-size: 0.8em;`,
+          data
+        )
+      }
+    }
+
+    // @ts-ignore
+    win.dataLayer = win.dataLayer || [];
+
+    // FIXME:
+    //  Forwarding dataLayer back to main thread produces plenty of JS error
+    //  I think that errors refers to missing badge API
+    // if (debug) {
+    //   const dataLayerPushBack = (...args) => {
+    //     callMethod(win, ['__partytown_gtm_debug', 'dataLayerPush'], args, CallType.Blocking);
+    //   }
+
+    //   const originalDataLayerPush = win.dataLayer.push;
+
+    //   win.dataLayer.forEach((tag) => {
+    //     dataLayerPushBack(tag)
+    //   })
+
+    //   win.dataLayer.push = (...args) => {
+    //     originalDataLayerPush(...args);
+    //     dataLayerPushBack(...args);
+    //   }
+    // }
+
+    // @ts-ignore
+    win.__tag_assistant_forwarder = (...data: unknown[]) => {
+      if (typeof receiverFn === 'function') {
+        gtmDebugLog('receive data', data);
+
+        return receiverFn(...data)
+      }
+    }
+
+    this.api = {
+      g: win,
+      setReceiver: (r: unknownFn) => {
+        gtmDebugLog('set receiver', r);
+        receiverFn = r
+        callMethod(win, ['__partytown_gtm_debug', 'activate'], [], CallType.Blocking);
+      },
+      sendMessage: (...args: unknown[]) => {
+        gtmDebugLog('send message', args);
+        return callMethod(win, ['__partytown_gtm_debug', 'sendMessage'], args, CallType.Blocking);
+      },
+      disconnect: (...args: unknown[]) => {
+        gtmDebugLog('disconnect', args);
+        return callMethod(win, ['__partytown_gtm_debug', 'disconnect'], args, CallType.Blocking);
+      }
+    }
+  }
+
+  getApi() {
+    return this.api;
+  }
+}
+
 export const createWindow = (
   $winId$: WinId,
   $parentWinId$: WinId,
@@ -450,6 +525,9 @@ export const createWindow = (
           }
         }
 
+        // FIXME: move this to some better place
+        win.tagAssistantApi = new TagAssistantApi(win);
+
         win.Worker = undefined;
       }
 
@@ -588,6 +666,14 @@ export const createWindow = (
         );
         ExtendedXhr.prototype.constructor.toString = () => str;
         return ExtendedXhr;
+      }
+
+      // FIXME: move this to some better place
+      get __TAG_ASSISTANT_API() {
+        if ('tagAssistantApi' in this) {
+          // @ts-ignore
+          return this.tagAssistantApi.getApi()
+        }
       }
     },
     'Window'
