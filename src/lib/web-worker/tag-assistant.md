@@ -66,3 +66,15 @@ __partytown_gtm_debug = {
   },
 }
 ```
+
+3. bootstrap script is missing CORS headers. It needs to be proxied. You can check it inside Partytown's `resolveUrl` like this:
+
+```jsx
+function partytownResolve(url) {
+  if (url.host === 'www.googletagmanager.com' && url.pathname.startsWith('/debug')) {
+    return `/your-proxy?forward=` + encodeURIComponent(url.href);
+  }
+
+  return url;
+}
+```
