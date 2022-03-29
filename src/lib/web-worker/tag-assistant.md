@@ -67,7 +67,7 @@ __partytown_gtm_debug = {
 }
 ```
 
-3. bootstrap script is missing CORS headers. It needs to be proxied. You can check it inside Partytown's `resolveUrl` like this:
+3. bootstrap script is missing CORS headers, it needs to be proxied. You can check for the tag assistant's bootstrap inside Partytown's `resolveUrl` like this:
 
 ```jsx
 function partytownResolve(url) {
