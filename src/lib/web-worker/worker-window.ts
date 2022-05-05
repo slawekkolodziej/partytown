@@ -77,10 +77,9 @@ import { resolveUrl } from './worker-exec';
 
 // FIXME: move this to some better place
 class TagAssistantApi {
-  win: Window;
   api: unknown;
 
-  constructor(win: Window) {
+  constructor(win: WorkerWindow) {
     type unknownFn = (...args: unknown[]) => unknown
     let receiverFn: unknownFn | null = null
 
